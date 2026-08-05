@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <!-- 모바일에서도 화면 크기에 맞게 보이도록 설정하는 부분 (반응형의 핵심 태그) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>자재 신청</title>
+
+  <!-- 디자인(CSS)과 기능(JavaScript) 파일을 각각 따로 불러옵니다 -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- 1. 상단 헤더 영역 -->
+  <header class="app-header">
+    <div class="app-header-inner">
+      <p class="header-eyebrow">사내 포털 · 자재관리</p>
+      <h1>자재 신청</h1>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <!-- 2. 신청 폼 영역 -->
+    <section class="form-card" aria-labelledby="form-title">
+      <div class="section-heading">
+        <p class="section-eyebrow">STEP 1</p>
+        <h2 id="form-title">새 신청 작성</h2>
+        <p class="section-desc">자재명, 수량, 신청자를 입력하고 신청해 주세요.</p>
+      </div>
+
+      <form class="request-form" id="request-form">
+        <div class="form-field">
+          <label for="material-name">자재명</label>
+          <input type="text" id="material-name" name="materialName" placeholder="예: A4 용지" />
+        </div>
+
+        <div class="form-field">
+          <label for="material-qty">수량</label>
+          <input type="number" id="material-qty" name="materialQty" placeholder="예: 5" min="1" />
+        </div>
+
+        <div class="form-field">
+          <label for="requester-name">신청자</label>
+          <input type="text" id="requester-name" name="requesterName" placeholder="예: 홍길동" />
+        </div>
+
+        <!-- 입력값이 비어있거나 잘못됐을 때 이 자리에 안내 문구가 나타납니다 -->
+        <p class="form-error" id="form-error" hidden></p>
+
+        <button type="submit" class="submit-button" id="submit-button">
+          신청하기
+        </button>
+
+        <!-- 신청 내용이 실제로 어디에 저장되는지 알려주는 안내문 -->
+        <p class="form-notice">신청 내용은 데이터베이스에 실시간으로 저장돼요.</p>
+      </form>
+    </section>
+
+    <!-- 3. 신청 목록 영역 -->
+    <section class="list-section" aria-labelledby="list-title">
+      <div class="section-heading section-heading-row">
+        <div>
+          <p class="section-eyebrow">STEP 2</p>
+          <h2 id="list-title">신청 목록</h2>
+        </div>
+        <!-- 목록에 몇 건이 있는지 script.js가 자동으로 채워 넣는 자리 -->
+        <span class="list-count" id="list-count">0건</span>
+      </div>
+
+      <!-- 카드들이 들어갈 자리. 실제 카드는 script.js가 데이터를 읽어서 여기에 채워 넣습니다 -->
+      <div class="request-list" id="request-list"></div>
+
+      <!-- 4. 빈 상태(목록이 없을 때) 안내 문구. 기본적으로는 숨겨두고, 목록이 비면 script.js가 보여줍니다 -->
+      <div class="empty-state" id="empty-state" hidden>
+        <svg class="empty-state-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M3 8.5 12 4l9 4.5-9 4.5-9-4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+          <path d="M3 8.5V16l9 4.5 9-4.5V8.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+          <path d="M12 13v7.5" stroke="currentColor" stroke-width="1.5" />
+        </svg>
+        <p class="empty-state-title">아직 신청한 자재가 없어요</p>
+        <p class="empty-state-desc">위 폼에서 새 자재를 신청해 보세요.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 외부에 노출되면 안 되는 설정값(Supabase 주소, 키)을 담은 파일 -->
+  <!-- 반드시 다른 스크립트보다 먼저 불러와야 합니다 -->
+  <script src="config.js"></script>
+
+  <!-- Supabase(데이터베이스)와 통신할 때 쓰는 공식 라이브러리 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- 화면에 보여줄 데이터와 기능을 담당하는 JavaScript 파일 -->
+  <script src="script.js"></script>
+</body>
+</html>
