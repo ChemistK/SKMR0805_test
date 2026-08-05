@@ -272,6 +272,48 @@ body {
   flex-direction: column;
 }
 
+/* ---------- 3-0. 검색/필터 영역 ---------- */
+.filter-bar {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.filter-search-input,
+.filter-status-select {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-md);
+  font-family: inherit;
+  background-color: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  transition: border-color 0.2s ease, background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.filter-search-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.filter-search-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.filter-status-select {
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.filter-search-input:focus,
+.filter-status-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background-color: var(--color-surface);
+  box-shadow: 0 0 0 4px var(--color-accent-soft);
+}
+
 .request-list {
   display: flex;
   flex-direction: column;
@@ -502,5 +544,9 @@ body {
 
   .request-card-actions {
     justify-content: flex-end;
+  }
+
+  .filter-bar {
+    flex-direction: column;
   }
 }

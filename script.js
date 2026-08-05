@@ -36,6 +36,8 @@ const STATUS_FLOW = {
 const ELEMENT_ID = {
   requestList: "request-list",
   emptyState: "empty-state",
+  emptyStateTitle: "empty-state-title",
+  emptyStateDesc: "empty-state-desc",
   listCount: "list-count",
   form: "request-form",
   materialName: "material-name",
@@ -43,6 +45,28 @@ const ELEMENT_ID = {
   requesterName: "requester-name",
   formError: "form-error",
   submitButton: "submit-button",
+  searchInput: "search-material",
+  statusFilter: "status-filter",
+};
+
+// 상태 필터 드롭다운에서 "전체"를 뜻하는 값 (이 값일 때는 상태로 걸러내지 않아요)
+const STATUS_FILTER_ALL = "all";
+
+// 검색창에 글자를 입력할 때마다 매번 바로 검색하면 데이터베이스에 요청이 너무 자주 가서,
+// 타이핑을 멈추고 이만큼(ms) 지난 뒤에 검색하도록 살짝 기다려주는 시간
+const SEARCH_DEBOUNCE_DELAY_MS = 300;
+
+// 목록이 비어있을 때 상황별로 보여줄 안내 문구
+// (아예 신청이 하나도 없을 때 / 검색·필터 조건에 맞는 게 없을 때를 구분해요)
+const EMPTY_STATE_MESSAGE = {
+  noRequests: {
+    title: "아직 신청한 자재가 없어요",
+    desc: "위 폼에서 새 자재를 신청해 보세요.",
+  },
+  noMatch: {
+    title: "조건에 맞는 자재가 없어요",
+    desc: "다른 자재명이나 상태로 다시 검색해보세요.",
+  },
 };
 
 // 신청 폼에 값을 하나라도 안 채웠을 때 보여줄 안내 문구
@@ -203,12 +227,53 @@ function escapeHtml(text) {
 }
 
 /**
- * 현재 목록(currentRequests)을 화면의 목록 영역에 채워 넣고,
- * 목록이 비어 있으면 안내 문구를 보여주는 함수
+ * 지금 검색창/상태 필터에 어떤 값이 들어있는지 읽어오는 함수
+ * (검색어는 앞뒤 빈칸을 지우고, 필터 요소를 못 찾으면 "전체"로 취급합니다)
  */
-function renderRequestList(requests) {
+function getCurrentFilters() {
+  const searchInput = document.getElementById(ELEMENT_ID.searchInput);
+  const statusFilterSelect = document.getElementById(ELEMENT_ID.statusFilter);
+
+  return {
+    searchText: searchInput ? searchInput.value.trim() : "",
+    status: statusFilterSelect ? statusFilterSelect.value : STATUS_FILTER_ALL,
+  };
+}
+
+/**
+ * 검색/필터 조건이 하나라도 걸려있는지 확인하는 함수
+ * (조건이 걸려있는데 결과가 없으면, "신청 자체가 없다"가 아니라
+ *  "조건에 맞는 게 없다"는 문구를 보여줘야 하기 때문에 구분이 필요해요)
+ */
+function isAnyFilterActive(filters) {
+  return Boolean(filters.searchText) || filters.status !== STATUS_FILTER_ALL;
+}
+
+/**
+ * 함수를 바로 실행하지 않고, 마지막 호출 후 delay(ms)만큼 조용히 지나면 실행하는 함수
+ * 검색창에 글자를 입력할 때마다 매번 데이터베이스에 요청을 보내면 낭비이므로,
+ * 타이핑이 멈췄을 때 딱 한 번만 검색하도록 도와줍니다
+ */
+function debounce(functionToRun, delay) {
+  let timerId = null;
+
+  return (...args) => {
+    if (timerId) {
+      clearTimeout(timerId);
+    }
+    timerId = setTimeout(() => functionToRun(...args), delay);
+  };
+}
+
+/**
+ * 현재 목록(currentRequests)을 화면의 목록 영역에 채워 넣고,
+ * 목록이 비어 있으면 상황에 맞는 안내 문구를 보여주는 함수
+ */
+function renderRequestList(requests, filters) {
   const listElement = document.getElementById(ELEMENT_ID.requestList);
   const emptyStateElement = document.getElementById(ELEMENT_ID.emptyState);
+  const emptyStateTitleElement = document.getElementById(ELEMENT_ID.emptyStateTitle);
+  const emptyStateDescElement = document.getElementById(ELEMENT_ID.emptyStateDesc);
   const listCountElement = document.getElementById(ELEMENT_ID.listCount);
 
   // 화면 요소를 못 찾으면 더 진행하지 않고 원인을 콘솔에 남깁니다 (오류 처리)
@@ -227,6 +292,18 @@ function renderRequestList(requests) {
   // 목록이 비어있는 경우: 카드 대신 안내 문구를 보여줍니다
   if (!requests || requests.length === 0) {
     listElement.innerHTML = "";
+
+    const message = isAnyFilterActive(filters ?? getCurrentFilters())
+      ? EMPTY_STATE_MESSAGE.noMatch
+      : EMPTY_STATE_MESSAGE.noRequests;
+
+    if (emptyStateTitleElement) {
+      emptyStateTitleElement.textContent = message.title;
+    }
+    if (emptyStateDescElement) {
+      emptyStateDescElement.textContent = message.desc;
+    }
+
     emptyStateElement.hidden = false;
     return;
   }
@@ -290,7 +367,9 @@ function setSubmitButtonLoading(isLoading) {
 // -----------------------------------------------------------
 
 /**
- * 데이터베이스에서 신청 목록 전체를 최신순으로 가져와서 화면에 그리는 함수
+ * 데이터베이스에서 신청 목록을 가져와 화면에 그리는 함수
+ * 검색창(자재명)과 상태 필터에 값이 들어있으면, 그 조건에 맞는 데이터만
+ * 데이터베이스에 요청해서 불러옵니다 (화면에서 걸러내는 게 아니라, DB에서부터 걸러서 가져와요)
  */
 async function loadRequestsFromDatabase() {
   if (!supabaseClient) {
@@ -298,10 +377,25 @@ async function loadRequestsFromDatabase() {
     return;
   }
 
-  const { data, error } = await supabaseClient
+  const filters = getCurrentFilters();
+
+  let query = supabaseClient
     .from(TABLE_NAME)
     .select("id, material_name, quantity, requester, requested_at, status")
     .order("requested_at", { ascending: false });
+
+  // 자재명 검색어가 있으면, 그 글자가 포함된 자재만 가져오도록 조건을 추가합니다
+  // (ilike는 대소문자를 구분하지 않는 "포함 검색"이에요)
+  if (filters.searchText) {
+    query = query.ilike("material_name", `%${filters.searchText}%`);
+  }
+
+  // 상태 필터가 "전체"가 아니면, 그 상태에 딱 맞는 자재만 가져오도록 조건을 추가합니다
+  if (filters.status !== STATUS_FILTER_ALL) {
+    query = query.eq("status", filters.status);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("[자재 신청] 목록을 불러오는 중 문제가 발생했어요:", error);
@@ -310,7 +404,7 @@ async function loadRequestsFromDatabase() {
   }
 
   currentRequests = data.map(mapDatabaseRowToRequest);
-  renderRequestList(currentRequests);
+  renderRequestList(currentRequests, filters);
 }
 
 /**
@@ -484,6 +578,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     listElement.addEventListener("click", handleDeleteButtonClick);
     listElement.addEventListener("click", handleStatusChangeButtonClick);
+
+    // 검색창은 타이핑이 멈춘 뒤 잠시 있다가 검색하고(디바운스), 상태 필터는 고르는 즉시 검색합니다
+    const searchInput = document.getElementById(ELEMENT_ID.searchInput);
+    if (searchInput) {
+      searchInput.addEventListener(
+        "input",
+        debounce(loadRequestsFromDatabase, SEARCH_DEBOUNCE_DELAY_MS)
+      );
+    }
+
+    const statusFilterSelect = document.getElementById(ELEMENT_ID.statusFilter);
+    if (statusFilterSelect) {
+      statusFilterSelect.addEventListener("change", () => loadRequestsFromDatabase());
+    }
   } catch (error) {
     // 예상치 못한 문제가 생겨도 화면이 완전히 멈추지 않도록 방지합니다
     console.error("[자재 신청] 화면을 준비하는 중 문제가 발생했어요:", error);

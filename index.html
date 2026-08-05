@@ -68,18 +68,36 @@
         <span class="list-count" id="list-count">0건</span>
       </div>
 
+      <!-- 3-1. 검색/필터 영역: 자재명 검색창 + 상태 필터. 값이 바뀌면 script.js가 조건에 맞는 목록만 다시 불러옵니다 -->
+      <div class="filter-bar">
+        <input
+          type="search"
+          id="search-material"
+          class="filter-search-input"
+          placeholder="자재명으로 검색"
+          aria-label="자재명 검색"
+        />
+        <select id="status-filter" class="filter-status-select" aria-label="상태 필터">
+          <option value="all">전체</option>
+          <option value="pending">대기</option>
+          <option value="approved">승인</option>
+          <option value="completed">완료</option>
+        </select>
+      </div>
+
       <!-- 카드들이 들어갈 자리. 실제 카드는 script.js가 데이터를 읽어서 여기에 채워 넣습니다 -->
       <div class="request-list" id="request-list"></div>
 
-      <!-- 4. 빈 상태(목록이 없을 때) 안내 문구. 기본적으로는 숨겨두고, 목록이 비면 script.js가 보여줍니다 -->
+      <!-- 4. 빈 상태(목록이 없을 때) 안내 문구. 기본적으로는 숨겨두고, 목록이 비면 script.js가 보여줍니다
+           (신청이 하나도 없을 때와, 검색/필터 조건에 맞는 게 없을 때는 서로 다른 문구를 보여줘요) -->
       <div class="empty-state" id="empty-state" hidden>
         <svg class="empty-state-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M3 8.5 12 4l9 4.5-9 4.5-9-4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
           <path d="M3 8.5V16l9 4.5 9-4.5V8.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
           <path d="M12 13v7.5" stroke="currentColor" stroke-width="1.5" />
         </svg>
-        <p class="empty-state-title">아직 신청한 자재가 없어요</p>
-        <p class="empty-state-desc">위 폼에서 새 자재를 신청해 보세요.</p>
+        <p class="empty-state-title" id="empty-state-title">아직 신청한 자재가 없어요</p>
+        <p class="empty-state-desc" id="empty-state-desc">위 폼에서 새 자재를 신청해 보세요.</p>
       </div>
     </section>
 
