@@ -21,6 +21,31 @@
 
   <main class="app-main">
 
+    <!-- 1. 요약 대시보드 영역: 신청/삭제/상태변경이 있을 때마다 script.js가 최신 숫자로 다시 채워 넣습니다 -->
+    <section class="dashboard-section" aria-labelledby="dashboard-title">
+      <div class="section-heading">
+        <p class="section-eyebrow">대시보드</p>
+        <h2 id="dashboard-title">요약 현황</h2>
+        <p class="section-desc">검색/필터와 상관없이, 전체 신청 데이터를 기준으로 보여줘요.</p>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="stat-card">
+          <p class="stat-label">총 건수</p>
+          <p class="stat-value" id="stat-total-count">0건</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">수량 합계</p>
+          <p class="stat-value" id="stat-total-quantity">0개</p>
+        </div>
+        <div class="stat-card stat-card-status">
+          <p class="stat-label">상태별 개수</p>
+          <!-- 대기중/승인됨/완료됨 각 항목은 script.js가 채워 넣는 자리 -->
+          <div class="stat-status-list" id="stat-status-list"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- 2. 신청 폼 영역 -->
     <section class="form-card" aria-labelledby="form-title">
       <div class="section-heading">

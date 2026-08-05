@@ -81,6 +81,16 @@ const STATUS_UPDATE_ERROR_MESSAGE = "상태 변경에 실패했어요. 잠시 �
 // 새로 신청할 때 기본으로 붙는 상태값 (담당자가 검토하기 전이라는 뜻)
 const DEFAULT_STATUS = "pending";
 
+// 대시보드에 상태별 개수를 보여줄 때, 이 순서(대기중 -> 승인됨 -> 완료됨)대로 보여줍니다
+const STATUS_ORDER = ["pending", "approved", "completed"];
+
+// 대시보드(요약 현황) 영역을 화면에서 찾을 때 쓰는 id 값 모음
+const DASHBOARD_ELEMENT_ID = {
+  totalCount: "stat-total-count",
+  totalQuantity: "stat-total-quantity",
+  statusList: "stat-status-list",
+};
+
 // 신청하기 버튼의 평소 문구 / 저장 중일 때 문구
 const SUBMIT_BUTTON_LABEL = "신청하기";
 const SUBMIT_BUTTON_LOADING_LABEL = "저장 중...";
@@ -408,6 +418,81 @@ async function loadRequestsFromDatabase() {
 }
 
 /**
+ * 데이터베이스에 있는 "전체" 신청 데이터를 모아서
+ * 총 건수 / 수량 합계 / 상태별 개수를 계산하고 화면에 그리는 함수
+ * (검색창이나 상태 필터 값과는 상관없이, 항상 전체 데이터를 기준으로 집계해요)
+ */
+async function loadDashboardStats() {
+  if (!supabaseClient) {
+    return;
+  }
+
+  const { data, error } = await supabaseClient.from(TABLE_NAME).select("quantity, status");
+
+  if (error) {
+    console.error("[자재 신청] 요약 현황을 불러오는 중 문제가 발생했어요:", error);
+    return;
+  }
+
+  const totalCount = data.length;
+  const totalQuantity = data.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
+
+  // 상태별 개수를 세어두는 표(맵). 데이터가 하나도 없는 상태도 0으로 보여주기 위해
+  // 먼저 STATUS_ORDER에 있는 모든 상태를 0으로 채워둡니다
+  const statusCounts = {};
+  STATUS_ORDER.forEach((status) => {
+    statusCounts[status] = 0;
+  });
+
+  data.forEach((row) => {
+    const status = row.status ?? DEFAULT_STATUS;
+    statusCounts[status] = (statusCounts[status] ?? 0) + 1;
+  });
+
+  renderDashboardStats({ totalCount, totalQuantity, statusCounts });
+}
+
+/**
+ * loadDashboardStats가 계산한 숫자를 실제 화면(대시보드 카드)에 채워 넣는 함수
+ */
+function renderDashboardStats({ totalCount, totalQuantity, statusCounts }) {
+  const totalCountElement = document.getElementById(DASHBOARD_ELEMENT_ID.totalCount);
+  const totalQuantityElement = document.getElementById(DASHBOARD_ELEMENT_ID.totalQuantity);
+  const statusListElement = document.getElementById(DASHBOARD_ELEMENT_ID.statusList);
+
+  if (!totalCountElement || !totalQuantityElement || !statusListElement) {
+    console.error("[자재 신청] 대시보드 영역을 찾지 못했어요. index.html의 id 값을 확인해주세요.");
+    return;
+  }
+
+  totalCountElement.textContent = `${totalCount}건`;
+  totalQuantityElement.textContent = `${totalQuantity}개`;
+
+  statusListElement.innerHTML = "";
+  STATUS_ORDER.forEach((status) => {
+    const statusInfo = STATUS_CONFIG[status] ?? { label: status, className: "pending" };
+    const count = statusCounts[status] ?? 0;
+
+    const itemElement = document.createElement("div");
+    itemElement.className = "stat-status-item";
+    itemElement.innerHTML = `
+      <span class="status-badge ${statusInfo.className}">${escapeHtml(statusInfo.label)}</span>
+      <span class="stat-status-count">${count}건</span>
+    `;
+    statusListElement.appendChild(itemElement);
+  });
+}
+
+/**
+ * 신청 목록과 대시보드 숫자를 동시에 새로고침하는 함수
+ * 신청하기/삭제/상태변경처럼 데이터베이스 내용이 실제로 바뀌는 순간마다 이 함수를 불러서
+ * 목록과 대시보드가 항상 같은 최신 상태를 보여주도록 맞춰줍니다
+ */
+async function refreshRequestsAndStats() {
+  await Promise.all([loadRequestsFromDatabase(), loadDashboardStats()]);
+}
+
+/**
  * 삭제(✕) 버튼을 눌렀을 때 실행되는 함수
  * 카드 하나하나에 이벤트를 거는 대신, 목록 전체(#request-list)에
  * 클릭 이벤트를 한 번만 걸어두고 어떤 버튼을 눌렀는지 확인하는 방식입니다
@@ -446,8 +531,8 @@ async function handleDeleteButtonClick(event) {
     return;
   }
 
-  // 삭제된 결과가 목록에 바로 반영되도록 다시 불러옵니다
-  await loadRequestsFromDatabase();
+  // 삭제된 결과가 목록과 대시보드에 바로 반영되도록 다시 불러옵니다
+  await refreshRequestsAndStats();
 }
 
 /**
@@ -487,8 +572,8 @@ async function handleStatusChangeButtonClick(event) {
     return;
   }
 
-  // 바뀐 상태(배지 색, 다음 버튼 문구)가 바로 반영되도록 목록을 다시 불러옵니다
-  await loadRequestsFromDatabase();
+  // 바뀐 상태(배지 색, 다음 버튼 문구, 대시보드 숫자)가 바로 반영되도록 다시 불러옵니다
+  await refreshRequestsAndStats();
 }
 
 /**
@@ -544,8 +629,8 @@ async function handleRequestSubmit(event) {
     return;
   }
 
-  // 방금 저장한 내용이 정확히 반영되도록 목록을 다시 불러옵니다
-  await loadRequestsFromDatabase();
+  // 방금 저장한 내용이 목록과 대시보드에 정확히 반영되도록 다시 불러옵니다
+  await refreshRequestsAndStats();
 
   // 다음 신청을 편하게 입력할 수 있도록 폼을 비워줍니다
   nameInput.value = "";
@@ -562,7 +647,7 @@ document.addEventListener("DOMContentLoaded", () => {
   try {
     supabaseClient = setupSupabaseClient();
 
-    loadRequestsFromDatabase();
+    refreshRequestsAndStats();
 
     const formElement = document.getElementById(ELEMENT_ID.form);
     if (!formElement) {
